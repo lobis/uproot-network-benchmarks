@@ -3,10 +3,9 @@
 #include "TTree.h"
 #include "TVector3.h"
 
-void make_tree(unsigned int n_events = 10000) {
-    const char* filename = "tree.root";
-    const char* tree_name = "Events";
-
+// root -q 'make_tree.C(1000, "tree.root", "Events")'
+void make_tree(unsigned int n_events = 10000, const char* filename = "tree.root",
+               const char* tree_name = "Events") {
     TFile* file = new TFile(filename, "RECREATE");
     TTree tree(tree_name, tree_name);
 

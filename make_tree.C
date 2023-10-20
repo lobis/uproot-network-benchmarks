@@ -27,6 +27,8 @@ void make_tree(unsigned int n_events = 10000) {
     tree.Branch("event_id", &event.event_id);
     tree.Branch("event_type", &event.event_type);
 
+    gRandom->SetSeed(137);  // set the random seed
+
     // 1E8 makes a ~1.5 GB file
     for (int i = 0; i < n_events; i++) {
         event.event_id = i;

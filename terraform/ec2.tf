@@ -103,6 +103,7 @@ sudo tar -C /usr/local -xzf /tmp/$ROOT_TAR && rm -rf /tmp/$ROOT_TAR
 echo "source /usr/local/root/bin/thisroot.sh" >> $HOME/.bashrc
 source $HOME/.bashrc
 cd $HOME/uproot-network-benchmarks
+mkdir -p files
 root -q 'make_tree.C(100000, "files/tree.root", "Events")'
 cd $HOME
 
@@ -110,6 +111,9 @@ echo "Installing nginx"
 sudo apt-get install -y nginx
 sudo systemctl start nginx
 sudo systemctl enable nginx
+sudo usermod -aG www-data $USER
+sudo chown -R www-data:www-data /var/www/html
+sudo chmod -R 755 /var/www/html
 
 echo "Done!"
 sudo chown -R $USER:$USER $HOME

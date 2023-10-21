@@ -111,6 +111,8 @@ cd $HOME
 echo "Installing nginx"
 sudo apt-get install -y nginx nginx-extras
 sudo usermod -aG www-data $USER
+sudo systemctl start nginx
+sudo systemctl enable nginx
 
 # Create an Nginx server block configuration
 echo 'server {
@@ -135,12 +137,10 @@ sudo mv $HOME/scikit-hep-testdata/src/skhep_testdata/data /var/www/files/scikit-
 ln -s /var/www/files/benchmark/ $HOME/uproot-network-benchmarks/files
 ln -s /var/www/files/scikit-hep-testdata/ $HOME/scikit-hep-testdata/src/skhep_testdata/data
 
-sudo systemctl start nginx
-sudo systemctl enable nginx
-
 echo "Done!"
 sudo chown -R $USER:$USER $HOME
 sudo chown -R www-data:www-data /var/www
+sudo systemctl restart nginx
 EOF
 
   tags = {

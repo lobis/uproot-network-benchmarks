@@ -94,6 +94,7 @@ sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y git wget
 git clone https://github.com/lobis/uproot-network-benchmarks.git $HOME/uproot-network-benchmarks
+git clone https://github.com/scikit-hep/scikit-hep-testdata.git $HOME/scikit-hep-testdata
 
 echo "Installing ROOT"
 sudo apt-get install -y dpkg-dev cmake g++ gcc binutils libx11-dev libxpm-dev libxft-dev libxext-dev python3 python-is-python3 libssl-dev
@@ -101,22 +102,42 @@ ROOT_TAR="root_v6.28.06.Linux-ubuntu22-x86_64-gcc11.4.tar.gz"
 wget https://root.cern/download/$ROOT_TAR -O /tmp/$ROOT_TAR
 sudo tar -C /usr/local -xzf /tmp/$ROOT_TAR && rm -rf /tmp/$ROOT_TAR
 echo "source /usr/local/root/bin/thisroot.sh" >> $HOME/.bashrc
-source $HOME/.bashrc
+source /usr/local/root/bin/thisroot.sh
 cd $HOME/uproot-network-benchmarks
 mkdir -p files
 root -q 'make_tree.C(100000, "files/tree.root", "Events")'
 cd $HOME
 
 echo "Installing nginx"
-sudo apt-get install -y nginx
+sudo apt-get install -y nginx nginx-extras
 sudo systemctl start nginx
 sudo systemctl enable nginx
 sudo usermod -aG www-data $USER
-sudo chown -R www-data:www-data /var/www/html
-sudo chmod -R 755 /var/www/html
+
+# Create an Nginx server block configuration
+echo 'server {
+    listen       80;
+    server_name  localhost;
+    root /var/www/files;
+
+    location / {
+        try_files $uri $uri/ =404;
+        fancyindex on;
+        fancyindex_exact_size off;
+        fancyindex_localtime on;
+    }
+}' | sudo tee /etc/nginx/sites-available/file_server.conf
+
+# move files to /var/www
+sudo mkdir -p /var/www/files/
+sudo mv $HOME/uproot-network-benchmarks/files /var/www/files/benchmark
+sudo mv $HOME/scikit-hep-testdata/src/skhep_testdata/data /var/www/files/scikit-hep-testdata
+ln -s /var/www/files/benchmark/ $HOME/uproot-network-benchmarks/files
+ln -s /var/www/files/scikit-hep-testdata/ $HOME/scikit-hep-testdata/src/skhep_testdata/data
 
 echo "Done!"
 sudo chown -R $USER:$USER $HOME
+sudo chown -R www-data:www-data /var/www
 sudo reboot
 EOF
 

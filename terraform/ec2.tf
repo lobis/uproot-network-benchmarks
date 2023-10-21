@@ -78,7 +78,7 @@ resource "aws_instance" "file_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t2.micro"
 
-  vpc_security_group_ids = [aws_security_group.ssh_access.id]
+  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.file_server.id]
   subnet_id              = aws_subnet.web_A.id
 
   associate_public_ip_address = true
@@ -88,10 +88,13 @@ resource "aws_instance" "file_server" {
   user_data = <<-EOF
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
-HOME=/home/ubuntu # user_data is run as root, so we need to switch to ec2-user
+USER=ubuntu
+HOME=/home/$USER # user_data is run as root, so we need to switch to ec2-user
 sudo apt-get update
+sudo apt-get upgrade -y
 sudo apt-get install -y git wget
 git clone https://github.com/lobis/uproot-network-benchmarks.git $HOME/uproot-network-benchmarks
+
 echo "Installing ROOT"
 sudo apt-get install -y dpkg-dev cmake g++ gcc binutils libx11-dev libxpm-dev libxft-dev libxext-dev python3 python-is-python3 libssl-dev
 ROOT_TAR="root_v6.28.06.Linux-ubuntu22-x86_64-gcc11.4.tar.gz"
@@ -101,7 +104,16 @@ echo "source /usr/local/root/bin/thisroot.sh" >> $HOME/.bashrc
 source $HOME/.bashrc
 cd $HOME/uproot-network-benchmarks
 root -q 'make_tree.C(100000, "files/tree.root", "Events")'
+cd $HOME
+
+echo "Installing nginx"
+sudo apt-get install -y nginx
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
 echo "Done!"
+sudo chown -R $USER:$USER $HOME
+sudo reboot
 EOF
 
   tags = {
@@ -109,7 +121,7 @@ EOF
   }
 }
 
-# ssh ec2-user@$(terraform output -raw file_server_instance_dns)
+# ssh ubuntu@$(terraform output -raw file_server_instance_dns)
 output "file_server_instance_dns" {
   value = aws_instance.file_server.public_dns
 }

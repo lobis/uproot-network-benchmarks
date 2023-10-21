@@ -119,12 +119,17 @@ echo 'server {
     listen       80;
     server_name  localhost;
     root /var/www/files;
-
     location / {
         try_files $uri $uri/ =404;
         fancyindex on;
         fancyindex_exact_size off;
         fancyindex_localtime on;
+    }
+    location ~ \.root$ {
+        try_files $uri =404;
+    }
+    location ~ \.(?!root$) {
+        deny all;
     }
 }' | sudo tee /etc/nginx/sites-available/file_server.conf
 sudo rm -f /etc/nginx/sites-enabled/default

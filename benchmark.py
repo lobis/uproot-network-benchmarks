@@ -29,6 +29,12 @@ script_directory = os.path.dirname(os.path.abspath(__file__))
 files_directory = os.path.join(script_directory, "files")
 
 
+def check_file_availability(filename: str) -> bool:
+    # perform a HEAD request to check if the file is available
+    response = requests.head(filename)
+    return response.status_code == 200
+
+
 def request_multipart_range(url, ranges, headers=dict()):
     range_string = ",".join([f"{start}-{stop - 1}" for start, stop in ranges])
     headers["Range"] = f"bytes={range_string}"
@@ -91,51 +97,80 @@ def request_single_ranges_async(url, ranges, headers):
 
 
 if __name__ == "__main__":
-    filename = "tree_from_macro_1E7_events.root"
+    filename = "benchmark/tree.root"
 
     port = 8080
-    base_path = f"http://localhost:{port}/"
-    file_uri = base_path + filename
+    base_path = "http://ec2-18-118-186-39.us-east-2.compute.amazonaws.com/"
+    file_url = base_path + filename
+
+    print(f"file: {file_url}")
+    assert check_file_availability(file_url), f"file {file_url} not available"
 
     tree_name = "Events"
     branch_name = "position.z"
-    ranges = get_ranges(file_uri, tree_name=tree_name, branch_name=branch_name)
+    ranges = get_ranges(file_url, tree_name=tree_name, branch_name=branch_name)
+    # ranges = ranges[:10]
+    # ranges = [(0,10), (10,20), (20,30)]
+    # ranges should be a list of (n, n+10) for n in [0, 10, 20, ...]
+    step = 1
+    ranges = [(n, n + step) for n in range(0, 1000, step)]
+    average_basket_size = sum([stop - start for start, stop in ranges]) / len(ranges)
     print(f"number of baskets for branch {branch_name}: {len(ranges)}")
+    print(f"total number of bytes: {sum([stop - start for start, stop in ranges])}")
+    print(f"average basket size: {average_basket_size:.2f} bytes")
 
-    # request the whole file
-    time_start = time.time()
-    response = requests.get(file_uri)
-    time_elapsed = time.time() - time_start
-    print("method: whole file. time elapsed:", time_elapsed)
+    def benchmark_whole_file():
+        raise NotImplementedError  # too expensive
+        time_start = time.time()
+        response = requests.get(file_url)
+        time_elapsed = time.time() - time_start
+        return time_elapsed
 
-    # multipart
-    time_start = time.time()
-    response = request_multipart_range(file_uri, ranges=ranges)
-    time_elapsed = time.time() - time_start
-    print("method: multipart. time elapsed:", time_elapsed)
+    def benchmark_multipart():
+        time_start = time.time()
+        response = request_multipart_range(file_url, ranges=ranges)
+        time_elapsed = time.time() - time_start
+        return time_elapsed
 
-    # worst
-    time_start = time.time()
-    # use the generator
-    responses = [
-        response for response in request_single_ranges_blocking(file_uri, ranges=ranges)
-    ]
-    time_elapsed = time.time() - time_start
-    print("method: blocking (worst). time elapsed:", time_elapsed)
+    def benchmark_sequential_blocking():
+        time_start = time.time()
+        # use the generator
+        responses = [
+            response
+            for response in request_single_ranges_blocking(file_url, ranges=ranges)
+        ]
+        time_elapsed = time.time() - time_start
+        return time_elapsed
 
-    # threading
-    for num_workers in [0, 4, 10, 20, 50]:
+    def benchmark_threading(num_workers):
         time_start = time.time()
         responses = request_single_ranges_threading(
-            file_uri, ranges=ranges, num_workers=num_workers
+            file_url, ranges=ranges, num_workers=num_workers
         )
         time_elapsed = time.time() - time_start
+        return time_elapsed
+
+    def benchmark_async():
+        time_start = time.time()
+        responses = request_single_ranges_async(file_url, ranges=ranges, headers=dict())
+        time_elapsed = time.time() - time_start
+        return time_elapsed
+
+    # multipart
+    time_elapsed = benchmark_multipart()
+    print(f"method: multipart. time elapsed: {time_elapsed:.2f} seconds")
+
+    # sequential blocking
+    # time_elapsed = benchmark_sequential_blocking()
+    # print(f"method: sequential blocking. time elapsed: {time_elapsed:.2f} seconds")
+
+    # threading
+    for num_workers in [20, 4, 0]:
+        time_elapsed = benchmark_threading(num_workers)
         print(
-            f"method: threading with {num_workers} workers. time elapsed:", time_elapsed
+            f"method: threading with {num_workers} workers. time elapsed: {time_elapsed:.2f} seconds"
         )
 
     # asyncio
-    time_start = time.time()
-    responses = request_single_ranges_async(file_uri, ranges=ranges, headers=dict())
-    time_elapsed = time.time() - time_start
-    print("method: asyncio. time elapsed:", time_elapsed)
+    time_elapsed = benchmark_async()
+    print(f"method: asyncio. time elapsed: {time_elapsed:.2f} seconds")

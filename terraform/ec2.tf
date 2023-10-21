@@ -105,13 +105,11 @@ echo "source /usr/local/root/bin/thisroot.sh" >> $HOME/.bashrc
 source /usr/local/root/bin/thisroot.sh
 cd $HOME/uproot-network-benchmarks
 mkdir -p files
-root -q 'make_tree.C(100000, "files/tree.root", "Events")'
+root -q 'make_tree.C(10000000, "files/tree.root", "Events")'
 cd $HOME
 
 echo "Installing nginx"
 sudo apt-get install -y nginx nginx-extras
-sudo systemctl start nginx
-sudo systemctl enable nginx
 sudo usermod -aG www-data $USER
 
 # Create an Nginx server block configuration
@@ -127,6 +125,8 @@ echo 'server {
         fancyindex_localtime on;
     }
 }' | sudo tee /etc/nginx/sites-available/file_server.conf
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo ln -s /etc/nginx/sites-available/file_server.conf /etc/nginx/sites-enabled/file_server.conf
 
 # move files to /var/www
 sudo mkdir -p /var/www/files/
@@ -135,10 +135,12 @@ sudo mv $HOME/scikit-hep-testdata/src/skhep_testdata/data /var/www/files/scikit-
 ln -s /var/www/files/benchmark/ $HOME/uproot-network-benchmarks/files
 ln -s /var/www/files/scikit-hep-testdata/ $HOME/scikit-hep-testdata/src/skhep_testdata/data
 
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
 echo "Done!"
 sudo chown -R $USER:$USER $HOME
 sudo chown -R www-data:www-data /var/www
-sudo reboot
 EOF
 
   tags = {
